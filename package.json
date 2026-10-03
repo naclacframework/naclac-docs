@@ -1,6 +1,6 @@
 {
   "name": "@naclac/docs",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "type": "module",
   "bin": {
     "naclac-docs": "bin/cli.js"
@@ -63,7 +63,7 @@
     "content",
     "mdx",
     "public",
-    "next.config.ts",
+    "next.config.mjs",
     "postcss.config.mjs",
     "tsconfig.json",
     "next-env.d.ts",
