@@ -4,6 +4,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -233,11 +236,27 @@ To create a starter documentation template, run:
 }
 
 function findNextBin() {
-  const localNext = path.join(ENGINE_DIR, "node_modules", "next", "dist", "bin", "next");
-  if (fs.existsSync(localNext)) return localNext;
-  const parentNext = path.resolve(ENGINE_DIR, "..", "node_modules", "next", "dist", "bin", "next");
-  if (fs.existsSync(parentNext)) return parentNext;
-  return "next";
+  try {
+    return require.resolve("next/dist/bin/next");
+  } catch {
+    const localNext = path.join(ENGINE_DIR, "node_modules", "next", "dist", "bin", "next");
+    if (fs.existsSync(localNext)) return localNext;
+    const parentNext = path.resolve(ENGINE_DIR, "..", "node_modules", "next", "dist", "bin", "next");
+    if (fs.existsSync(parentNext)) return parentNext;
+    return "next";
+  }
+}
+
+function spawnNext(nextBin, subArgs, options = {}) {
+  const isJsScript = nextBin.endsWith(".js") || path.isAbsolute(nextBin);
+  const cmd = isJsScript ? process.execPath : nextBin;
+  const args = isJsScript ? [nextBin, ...subArgs] : subArgs;
+  return spawn(cmd, args, {
+    cwd: ENGINE_DIR,
+    stdio: "inherit",
+    shell: !isJsScript,
+    ...options,
+  });
 }
 
 function runDev(args) {
@@ -253,11 +272,7 @@ function runDev(args) {
     PORT: String(args.port),
   };
 
-  const child = spawn(process.execPath, [nextBin, "dev", "-p", String(args.port), "-H", args.host], {
-    cwd: ENGINE_DIR,
-    stdio: "inherit",
-    env,
-  });
+  const child = spawnNext(nextBin, ["dev", "-p", String(args.port), "-H", args.host], { env });
 
   if (args.open) {
     setTimeout(() => {
@@ -283,11 +298,7 @@ function runBuild(args) {
     DOCS_EXPORT: "true",
   };
 
-  const child = spawn(process.execPath, [nextBin, "build"], {
-    cwd: ENGINE_DIR,
-    stdio: "inherit",
-    env,
-  });
+  const child = spawnNext(nextBin, ["build"], { env });
 
   child.on("close", (code) => {
     if (code !== 0) {
