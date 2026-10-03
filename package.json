@@ -33,5 +33,40 @@
     "tailwindcss": "^4",
     "typescript": "^5"
   },
-  "packageManager": "pnpm@11.23.0"
+  "packageManager": "pnpm@11.23.0",
+  "description": "Mintlify-compatible documentation engine & CLI",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/naclacframework/naclac-docs.git"
+  },
+  "homepage": "https://github.com/naclacframework/naclac-docs#readme",
+  "bugs": {
+    "url": "https://github.com/naclacframework/naclac-docs/issues"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "mintlify",
+    "docs",
+    "documentation",
+    "mdx",
+    "naclac",
+    "cli",
+    "ssg"
+  ],
+  "files": [
+    "bin",
+    "app",
+    "components",
+    "content",
+    "mdx",
+    "public",
+    "next.config.ts",
+    "postcss.config.mjs",
+    "tsconfig.json",
+    "next-env.d.ts",
+    "README.md"
+  ]
 }
