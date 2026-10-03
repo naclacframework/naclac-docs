@@ -5,10 +5,15 @@ import { Toc } from "@/components/toc";
 import { PageTransition } from "@/components/page-transition";
 import { PageScrollbar } from "@/components/page-scrollbar";
 
+interface DocsLayoutProps {
+  children: React.ReactNode;
+  params: Promise<{ slug?: string[] }>;
+}
+
 export default async function DocsLayout({
   children,
   params,
-}: LayoutProps<"/[[...slug]]">) {
+}: DocsLayoutProps) {
   const { slug } = await params;
   const tabs = getTabs();
   const currentTab = findTabForSlug(slug) ?? tabs[0];
@@ -42,4 +47,3 @@ export default async function DocsLayout({
     </div>
   );
 }
-

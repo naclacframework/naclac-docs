@@ -8,9 +8,13 @@ export function generateStaticParams() {
   return allSlugs();
 }
 
+interface DocPageProps {
+  params: Promise<{ slug?: string[] }>;
+}
+
 export async function generateMetadata({
   params,
-}: PageProps<"/[[...slug]]">): Promise<Metadata> {
+}: DocPageProps): Promise<Metadata> {
   const { slug } = await params;
   const page = await loadPage(slug);
   if (!page) return {};
@@ -22,7 +26,7 @@ export async function generateMetadata({
 
 export default async function DocPage({
   params,
-}: PageProps<"/[[...slug]]">) {
+}: DocPageProps) {
   const { slug } = await params;
   const page = await loadPage(slug);
   if (!page) notFound();

@@ -1,6 +1,6 @@
 {
   "name": "@naclac/docs",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "module",
   "bin": {
     "naclac-docs": "bin/cli.js"
@@ -48,7 +48,6 @@
     "access": "public"
   },
   "keywords": [
-    "mintlify",
     "docs",
     "documentation",
     "mdx",

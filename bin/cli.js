@@ -2,18 +2,16 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
-import { spawn } from "node:child_process";
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
+import { spawn, execSync } from "node:child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ENGINE_DIR = path.resolve(__dirname, "..");
+const PACKAGE_ROOT = path.resolve(__dirname, "..");
 
 const pkg = JSON.parse(
-  fs.readFileSync(path.join(ENGINE_DIR, "package.json"), "utf-8")
+  fs.readFileSync(path.join(PACKAGE_ROOT, "package.json"), "utf-8")
 );
 
 function printHelp() {
@@ -105,18 +103,96 @@ function openBrowser(url) {
   }
 }
 
-function copyDirRecursive(src, dest) {
+function copyDirectory(src, dest, ignore = new Set()) {
   fs.mkdirSync(dest, { recursive: true });
   const entries = fs.readdirSync(src, { withFileTypes: true });
   for (const entry of entries) {
+    if (ignore.has(entry.name)) continue;
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
     if (entry.isDirectory()) {
-      copyDirRecursive(srcPath, destPath);
+      copyDirectory(srcPath, destPath, ignore);
     } else {
       fs.copyFileSync(srcPath, destPath);
     }
   }
+}
+
+function getEngineCacheDir() {
+  return path.join(os.homedir(), ".naclac-docs", `v${pkg.version}`);
+}
+
+function ensureEngineInstalled() {
+  const cacheDir = getEngineCacheDir();
+  const nextBin = path.join(cacheDir, "node_modules", "next", "dist", "bin", "next");
+
+  if (fs.existsSync(nextBin)) {
+    return cacheDir;
+  }
+
+  console.log(`\x1b[1m\x1b[38;2;239;112;37m[naclac-docs]\x1b[0m Initializing documentation engine in ~/.naclac-docs/v${pkg.version} (one-time setup)...`);
+
+  fs.mkdirSync(cacheDir, { recursive: true });
+
+  const ignoreList = new Set([".git", ".next", "node_modules", "out"]);
+  const itemsToCopy = [
+    "app",
+    "components",
+    "content",
+    "mdx",
+    "public",
+    "package.json",
+    "next.config.mjs",
+    "postcss.config.mjs",
+    "tsconfig.json",
+    "next-env.d.ts",
+  ];
+
+  for (const item of itemsToCopy) {
+    const src = path.join(PACKAGE_ROOT, item);
+    const dest = path.join(cacheDir, item);
+    if (fs.existsSync(src)) {
+      if (fs.statSync(src).isDirectory()) {
+        copyDirectory(src, dest, ignoreList);
+      } else {
+        fs.copyFileSync(src, dest);
+      }
+    }
+  }
+
+  try {
+    console.log(`\x1b[1m\x1b[38;2;239;112;37m[naclac-docs]\x1b[0m Installing engine dependencies...`);
+    execSync("npm install --omit=dev --no-audit --no-fund", {
+      cwd: cacheDir,
+      stdio: "inherit",
+      shell: true,
+    });
+    console.log(`\x1b[32m? Documentation engine ready!\x1b[0m\n`);
+  } catch (err) {
+    console.error(`\x1b[31m[naclac-docs] Failed to initialize engine in ${cacheDir}\x1b[0m`);
+    process.exit(1);
+  }
+
+  return cacheDir;
+}
+
+function resolveContentDir(targetDir) {
+  const resolved = path.resolve(process.cwd(), targetDir);
+  const docsPath = path.join(resolved, "docs.json");
+  const mintPath = path.join(resolved, "mint.json");
+
+  if (!fs.existsSync(docsPath) && !fs.existsSync(mintPath)) {
+    console.error(`
+\x1b[31m[naclac-docs] Error:\x1b[0m Could not find "docs.json" or "mint.json" in:
+  ${resolved}
+
+To create a starter documentation template, run:
+  \x1b[36mnaclac-docs init\x1b[0m
+`);
+    process.exit(1);
+  }
+
+  return resolved;
 }
 
 function runInit(targetDir) {
@@ -155,7 +231,7 @@ description: "Welcome to your documentation portal."
 
 ## Overview
 
-Welcome to your documentation! This site is powered by the Naclac Docs engine, matching Mintlify's components and aesthetic.
+Welcome to your documentation! This site is powered by the Naclac Docs engine.
 
 <CardGroup cols={2}>
   <Card title="Quick Start" icon="rocket" href="/quickstart">
@@ -203,65 +279,23 @@ Follow these simple steps:
   fs.writeFileSync(path.join(resolved, "quickstart.mdx"), starterQuickstartMdx, "utf-8");
 
   console.log(`
-\x1b[32m✓ Created starter documentation in:\x1b[0m
+\x1b[32m? Created starter documentation in:\x1b[0m
   ${resolved}
 
 \x1b[1mFiles created:\x1b[0m
-  • docs.json
-  • introduction.mdx
-  • quickstart.mdx
+  � docs.json
+  � introduction.mdx
+  � quickstart.mdx
 
 \x1b[1mTo start preview:\x1b[0m
   $ naclac-docs dev ${targetDir !== "." ? targetDir : ""}
 `);
 }
 
-function resolveContentDir(targetDir) {
-  const resolved = path.resolve(process.cwd(), targetDir);
-  const docsPath = path.join(resolved, "docs.json");
-  const mintPath = path.join(resolved, "mint.json");
-
-  if (!fs.existsSync(docsPath) && !fs.existsSync(mintPath)) {
-    console.error(`
-\x1b[31m[naclac-docs] Error:\x1b[0m Could not find "docs.json" or "mint.json" in:
-  ${resolved}
-
-To create a starter documentation template, run:
-  \x1b[36mnaclac-docs init\x1b[0m
-`);
-    process.exit(1);
-  }
-
-  return resolved;
-}
-
-function findNextBin() {
-  try {
-    return require.resolve("next/dist/bin/next");
-  } catch {
-    const localNext = path.join(ENGINE_DIR, "node_modules", "next", "dist", "bin", "next");
-    if (fs.existsSync(localNext)) return localNext;
-    const parentNext = path.resolve(ENGINE_DIR, "..", "node_modules", "next", "dist", "bin", "next");
-    if (fs.existsSync(parentNext)) return parentNext;
-    return "next";
-  }
-}
-
-function spawnNext(nextBin, subArgs, options = {}) {
-  const isJsScript = nextBin.endsWith(".js") || path.isAbsolute(nextBin);
-  const cmd = isJsScript ? process.execPath : nextBin;
-  const args = isJsScript ? [nextBin, ...subArgs] : subArgs;
-  return spawn(cmd, args, {
-    cwd: ENGINE_DIR,
-    stdio: "inherit",
-    shell: !isJsScript,
-    ...options,
-  });
-}
-
 function runDev(args) {
   const contentDir = resolveContentDir(args.targetDir);
-  const nextBin = findNextBin();
+  const engineDir = ensureEngineInstalled();
+  const nextBin = path.join(engineDir, "node_modules", "next", "dist", "bin", "next");
 
   console.log(`\x1b[1m\x1b[38;2;239;112;37m[naclac-docs]\x1b[0m Loading documentation from: \x1b[36m${contentDir}\x1b[0m`);
   console.log(`\x1b[1m\x1b[38;2;239;112;37m[naclac-docs]\x1b[0m Starting dev server at: \x1b[32mhttp://${args.host}:${args.port}\x1b[0m\n`);
@@ -272,7 +306,11 @@ function runDev(args) {
     PORT: String(args.port),
   };
 
-  const child = spawnNext(nextBin, ["dev", "-p", String(args.port), "-H", args.host], { env });
+  const child = spawn(process.execPath, [nextBin, "dev", "-p", String(args.port), "-H", args.host], {
+    cwd: engineDir,
+    stdio: "inherit",
+    env,
+  });
 
   if (args.open) {
     setTimeout(() => {
@@ -287,7 +325,8 @@ function runDev(args) {
 
 function runBuild(args) {
   const contentDir = resolveContentDir(args.targetDir);
-  const nextBin = findNextBin();
+  const engineDir = ensureEngineInstalled();
+  const nextBin = path.join(engineDir, "node_modules", "next", "dist", "bin", "next");
   const outputDir = path.resolve(process.cwd(), args.out);
 
   console.log(`\x1b[1m\x1b[38;2;239;112;37m[naclac-docs]\x1b[0m Building static documentation from: \x1b[36m${contentDir}\x1b[0m`);
@@ -298,7 +337,11 @@ function runBuild(args) {
     DOCS_EXPORT: "true",
   };
 
-  const child = spawnNext(nextBin, ["build"], { env });
+  const child = spawn(process.execPath, [nextBin, "build"], {
+    cwd: engineDir,
+    stdio: "inherit",
+    env,
+  });
 
   child.on("close", (code) => {
     if (code !== 0) {
@@ -306,13 +349,13 @@ function runBuild(args) {
       process.exit(code ?? 1);
     }
 
-    const exportOut = path.join(ENGINE_DIR, "out");
+    const exportOut = path.join(engineDir, "out");
     if (fs.existsSync(exportOut)) {
-      copyDirRecursive(exportOut, outputDir);
-      console.log(`\n\x1b[32m✓ Static documentation export complete!\x1b[0m`);
-      console.log(`📁 Export directory: \x1b[36m${outputDir}\x1b[0m\n`);
+      copyDirectory(exportOut, outputDir);
+      console.log(`\n\x1b[32m? Static documentation export complete!\x1b[0m`);
+      console.log(`?? Export directory: \x1b[36m${outputDir}\x1b[0m\n`);
     } else {
-      console.log(`\n\x1b[32m✓ Documentation build complete!\x1b[0m\n`);
+      console.log(`\n\x1b[32m? Documentation build complete!\x1b[0m\n`);
     }
     process.exit(0);
   });
