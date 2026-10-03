@@ -1,9 +1,9 @@
 {
   "name": "@naclac/docs",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "bin": {
-    "naclac-docs": "./bin/cli.js"
+    "naclac-docs": "bin/cli.js"
   },
   "engines": {
     "node": ">=22.12.0"
@@ -37,7 +37,7 @@
   "description": "Mintlify-compatible documentation engine & CLI",
   "repository": {
     "type": "git",
-    "url": "https://github.com/naclacframework/naclac-docs.git"
+    "url": "git+https://github.com/naclacframework/naclac-docs.git"
   },
   "homepage": "https://github.com/naclacframework/naclac-docs#readme",
   "bugs": {
