@@ -122,6 +122,55 @@ function getEngineCacheDir() {
   return path.join(os.homedir(), ".naclac-docs", `v${pkg.version}`);
 }
 
+function installDependencies(cacheDir) {
+  const managers = [
+    { name: "pnpm", cmd: "pnpm install --prod --node-linker=hoisted" },
+    { name: "yarn", cmd: "yarn install --production --ignore-engines" },
+    { name: "npm", cmd: "npm install --omit=dev --no-audit --no-fund" },
+  ];
+
+  const errors = [];
+
+  for (const { name, cmd } of managers) {
+    try {
+      console.log(`\x1b[1m\x1b[38;2;239;112;37m[naclac-docs]\x1b[0m Installing engine dependencies with \x1b[36m${name}\x1b[0m...`);
+      execSync(cmd, {
+        cwd: cacheDir,
+        stdio: "inherit",
+        shell: true,
+      });
+      console.log(`\x1b[32m? Documentation engine successfully prepared using ${name}!\x1b[0m\n`);
+      return;
+    } catch (err) {
+      console.warn(`\x1b[33m[naclac-docs] ${name} install failed or is not available. Trying fallback...\x1b[0m`);
+      errors.push({ name, error: err.message || String(err) });
+    }
+  }
+
+  console.error(`
+\x1b[1m\x1b[31m??????????????????????????????????????????????????????????????????????\x1b[0m
+\x1b[1m\x1b[31m[naclac-docs] Fatal Error: Engine Installation Failed\x1b[0m
+\x1b[1m\x1b[31m??????????????????????????????????????????????????????????????????????\x1b[0m
+
+Could not install the documentation engine in:
+  \x1b[36m${cacheDir}\x1b[0m
+
+All attempted package managers failed:
+${errors.map((e) => `  • \x1b[1m${e.name}\x1b[0m: ${e.error}`).join("\n")}
+
+\x1b[1mHow to resolve:\x1b[0m
+1. Verify you have an active internet connection.
+2. Ensure at least one package manager is installed:
+   • pnpm (recommended): \x1b[36mnpm install -g pnpm\x1b[0m
+   • npm: bundled with Node.js
+3. You can also manually navigate to the engine directory and run:
+   \x1b[36mcd ${cacheDir}\x1b[0m
+   \x1b[36mpnpm install --node-linker=hoisted\x1b[0m
+\x1b[1m\x1b[31m??????????????????????????????????????????????????????????????????????\x1b[0m
+`);
+  process.exit(1);
+}
+
 function ensureEngineInstalled() {
   const cacheDir = getEngineCacheDir();
   const nextBin = path.join(cacheDir, "node_modules", "next", "dist", "bin", "next");
@@ -160,18 +209,7 @@ function ensureEngineInstalled() {
     }
   }
 
-  try {
-    console.log(`\x1b[1m\x1b[38;2;239;112;37m[naclac-docs]\x1b[0m Installing engine dependencies...`);
-    execSync("npm install --omit=dev --no-audit --no-fund", {
-      cwd: cacheDir,
-      stdio: "inherit",
-      shell: true,
-    });
-    console.log(`\x1b[32m? Documentation engine ready!\x1b[0m\n`);
-  } catch (err) {
-    console.error(`\x1b[31m[naclac-docs] Failed to initialize engine in ${cacheDir}\x1b[0m`);
-    process.exit(1);
-  }
+  installDependencies(cacheDir);
 
   return cacheDir;
 }
